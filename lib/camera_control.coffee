@@ -1,6 +1,7 @@
 EventEmitter = require("events").EventEmitter
 spawn = require("child_process").spawn
 exec = require("child_process").exec
+im = require("imagemagick")
 
 ###
 # Interface to gphoto2 via the command line.
@@ -36,12 +37,23 @@ class CameraControl
         saving = @saving_regex.exec(data.toString())
         if saving
           fname = saving[1] + ".jpg"
-          emitter.emit(
-            "photo_saved",
-            fname,
-            @cwd + "/" + fname,
-            @web_root_path + "/" + fname
-          )
+          
+          # Generate a thumbnail to minimize bandwidth issues
+          # on slower networks - Don't send 7MB JPGs to an iPAD on an ad-hoc network
+          # because they will not load in the app fast enough to view them
+          input_file = @cwd + "/" + fname
+          output_file = @cwd + "/thumbs/" + fname
+          resizeCompressArgs = [ "-resize", "400x600", "-quality", "80", input_file, output_file ]
+          
+          im.convert resizeCompressArgs, (e, out, err) ->
+            throw err  if err
+            emitter.emit(
+              "photo_saved",
+              fname,
+              input_file,
+              output_file,
+              "/photos/thumbs/" + fname
+            )
           onSaveSuccess() if onSaveSuccess?
     emitter
 
